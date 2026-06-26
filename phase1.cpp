@@ -46,13 +46,16 @@ void computeForces(std::vector<Body>& bodies) {
 void updateBodies(std::vector<Body>& bodies, double dt) {
     // Forward Euler Integration
     for (auto& body : bodies) {
-        // Update velocity: v = v + (F/m) * dt
-        body.vx += (body.fx / body.mass) * dt;
-        body.vy += (body.fy / body.mass) * dt;
         
-        // Update position: x = x + v * dt
-        body.x += body.vx * dt;
-        body.y += body.vy * dt;
+
+        body.x += body.vx * dt + (body.fx / body.mass) * dt * dt/2;
+        body.y += body.vy * dt + (body.fy / body.mass) * dt * dt/2;
+
+        
+        body.vx += (body.fx / body.mass) * dt/2;
+        body.vy += (body.fy / body.mass) * dt/2;
+        
+        
 
     }
 }
@@ -67,22 +70,29 @@ int main() {
         {"Moon", 7.342e22, 1.496e11 + 3.844e8, 0.0, 0.0, 29780.0 + 1022.0, 0.0, 0.0}
     };
 
+    
+
     double dt = 86400.0; // Time step: 24 hours per tick
-    int steps = 1000 * 24 * 365; // total time is dt*steps
+    int steps = 100 * 24 * 365; // total time is dt*steps
 
     std::ofstream outFile("orbits.csv");
     outFile << "SunX,SunY,EarthX,EarthY,MoonX,MoonY\n";
 
-    for (int i = 0; i < steps; i++) {
-        computeForces(bodies);
-        updateBodies(bodies, dt);
-        for(int i=1;i<bodies.size();i++){
-            bodies[i].x -= bodies[0].x;
-            bodies[i].y -= bodies[0].y;
-        }
-        bodies[0].x = 0.0;
-        bodies[0].y = 0.0;                      // moving relative to the first body
+    computeForces(bodies);
 
+    for (int i = 0; i < steps; i++) {
+
+        updateBodies(bodies, dt);
+        computeForces(bodies);                      // first updating bodies by adding half of dt*acc to velocity, measuring the change in x and addition of new forces to velocity
+
+        for (auto& body : bodies) {
+            
+            body.vx += (body.fx / body.mass) * dt/2;
+            body.vy += (body.fy / body.mass) * dt/2;
+
+        }
+
+        
         // Write coordinates to CSV
         outFile << bodies[0].x << "," << bodies[0].y << ","
                 << bodies[1].x << "," << bodies[1].y << ","
