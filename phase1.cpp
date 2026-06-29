@@ -2,6 +2,7 @@
 #include <vector>
 #include <cmath>
 #include <fstream>
+#include <random>
 
 using namespace std;
 const double G = 6.67430e-11; // Gravitational constant
@@ -60,47 +61,101 @@ void updateBodies(std::vector<Body>& bodies, double dt) {
     }
 }
 
-int main() {
-    // Initializing the Sun, Earth, and Moon with real-world approximations
-    vector<Body> bodies = {
-        {"Sun", 1.989e30, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0},
-        // Earth is ~149.6 million km from Sun, moving at ~29.78 km/s
-        {"Earth", 5.972e24, 1.496e11, 0.0, 0.0, 29780.0, 0.0, 0.0},
-        // Moon is ~384,400 km from Earth, moving at Earth's vy + 1.022 km/s
-        {"Moon", 7.342e22, 1.496e11 + 3.844e8, 0.0, 0.0, 29780.0 + 1022.0, 0.0, 0.0}
-    };
+vector<Body> generateGalaxy(int numStars) {
+    std::vector<Body> bodies;
+    
+    // 1. The Supermassive Black Hole at the center
+    bodies.push_back({"BlackHole", 1.0e34, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0});
 
+    // Setup C++ random number generators
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    
+    // Gaussian distribution for positions (dense center, sparse edges)
+    // 1.0e11 is roughly the distance from Earth to Sun, so this makes a massive galaxy
+    std::normal_distribution<double> distPos(0.0, 5.0e11); 
+    
+    // Uniform distribution for small star masses
+    std::uniform_real_distribution<double> distMass(1.0e22, 1.0e26);
+
+    std::uniform_real_distribution<double> distDivisor(0.5, sqrt(sqrt(2)));
+
+
+    for (int i = 1; i < numStars; ++i) {
+        double x = distPos(gen);
+        double y = distPos(gen);
+        double mass = distMass(gen);
+
+        // Calculate distance from center
+        double r = std::sqrt(x*x + y*y);
+
+        // Calculate orbital velocity to keep it in a stable spin
+        // v = sqrt(G * Mass_Center / r)
+        double v = 0.0;
+        if (r > 0) {
+            v = std::sqrt(G * bodies[0].mass / r);
+        }
+
+        // To make it spin, the velocity vector must be perpendicular to the position vector
+        // If position is (x,y), a perpendicular vector is (-y, x)
+
+        double randDivisor = distDivisor(gen);
+        double randDivisor2 = distDivisor(gen);
+        
+        double vx = -v * (y / r) * randDivisor;
+        double vy = v * (x / r) * randDivisor2;
+
+        bodies.push_back({"Star_" + std::to_string(i), mass, x, y, vx, vy, 0.0, 0.0});
+    }
+
+    return bodies;
+}
+
+
+
+int main() {
+    vector<Body> bodies = generateGalaxy(100);
+
+    double dt = 3600.0; 
     
 
-    double dt = 86400.0; // Time step: 24 hours per tick
-    int steps = 100 * 24 * 365; // total time is dt*steps
+    int steps = 100 * 365 * 24; 
 
     std::ofstream outFile("orbits.csv");
-    outFile << "SunX,SunY,EarthX,EarthY,MoonX,MoonY\n";
+
+    for(int i = 0; i < bodies.size(); i++) {
+        outFile << "X" << i << ",Y" << i;
+        if (i != bodies.size() - 1) outFile << ",";
+    }
+    outFile << "\n";
 
     computeForces(bodies);
 
     for (int i = 0; i < steps; i++) {
-
         updateBodies(bodies, dt);
-        computeForces(bodies);                      // first updating bodies by adding half of dt*acc to velocity, measuring the change in x and addition of new forces to velocity
+        computeForces(bodies);                      
 
         for (auto& body : bodies) {
-            
             body.vx += (body.fx / body.mass) * dt/2;
             body.vy += (body.fy / body.mass) * dt/2;
-
         }
 
-        
-        // Write coordinates to CSV
-        outFile << bodies[0].x << "," << bodies[0].y << ","
-                << bodies[1].x << "," << bodies[1].y << ","
-                << bodies[2].x << "," << bodies[2].y << "\n";
+        // 3. The I/O Shield: Only save the data once every 3 hours (3 steps)
+        if (i % 3 == 0) {
+            for(int j = 0; j < bodies.size(); j++) {
+                outFile << (bodies[j].x - bodies[0].x) << "," << (bodies[j].y - bodies[0].y);
+                if (j != bodies.size() - 1) outFile << ",";
+            }
+            outFile << "\n";
+            
+        }
+        if(i%10000==0){
+            cout << "Saving Coordinates...." << " " << i/10000 << "\n";
+        }
+
     }
 
     outFile.close();
     std::cout << "Simulation complete. Data written to orbits.csv\n";
-    
     return 0;
 }
