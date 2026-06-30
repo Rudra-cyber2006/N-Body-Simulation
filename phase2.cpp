@@ -114,12 +114,12 @@ vector<Body> generateGalaxy(int numStars) {
 
 
 int main() {
-    vector<Body> bodies = generateGalaxy(100);
+    vector<Body> bodies = generateGalaxy(1000);
 
-    double dt = 3600.0; 
+    double dt = 14400.0; 
     
 
-    int steps = 100 * 365 * 24; 
+    int steps = 100 * 365 * 6; 
 
     std::ofstream outFile("orbits.csv");
 
@@ -149,8 +149,8 @@ int main() {
             outFile << "\n";
             
         }
-        if(i%10000==0){
-            cout << "Saving Coordinates...." << " " << i/10000 << "\n";
+        if(i % 2190 == 0){
+            cout << "Saving Coordinates...." << " " << i/2190 << "\n";
         }
 
     }
